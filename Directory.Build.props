@@ -3,5 +3,7 @@
       <LangVersion>13</LangVersion>
       <ImplicitUsings>enable</ImplicitUsings>
       <Nullable>enable</Nullable>
+      <MicrosoftNetCompilersToolset_Version>4.12.0</MicrosoftNetCompilersToolset_Version>
+      <MicrosoftCodeDomProvidersDotNetCompilerPlatform_Version>4.1.0</MicrosoftCodeDomProvidersDotNetCompilerPlatform_Version>
   </PropertyGroup>
 </Project>

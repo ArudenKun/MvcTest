@@ -1,9 +1,9 @@
 <Project>
-    <PropertyGroup>
+   <!-- <PropertyGroup>
         <MicrosoftNetCompilersToolset_Version>4.12.0</MicrosoftNetCompilersToolset_Version>
     </PropertyGroup>
     <ItemGroup>
         <PackageReference Update="Microsoft.Net.Compilers.Toolset" Version="4.12.0" PrivateAssets="all"/>
         <PackageReference Update="Microsoft.CodeDom.Providers.DotNetCompilerPlatform" Version="4.1.0" />
-    </ItemGroup>
+    </ItemGroup>-->
 </Project>
