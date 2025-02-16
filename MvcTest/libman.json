@@ -1,0 +1,44 @@
+{
+  "version": "1.0",
+  "defaultProvider": "cdnjs",
+  "libraries": [
+    {
+      "library": "jquery@3.7.1",
+      "destination": "lib/jquery/",
+      "files": [
+        "jquery.js"
+      ]
+    },
+    {
+      "library": "jquery-validate@1.21.0",
+      "destination": "lib/jquery-validate/",
+      "files": [
+        "jquery.validate.js"
+      ]
+    },
+    {
+      "library": "modernizr@2.8.3",
+      "destination": "lib/modernizr/",
+      "files": [
+        "modernizr.js"
+      ]
+    },
+    {
+      "library": "jquery-validation-unobtrusive@4.0.0",
+      "destination": "lib/jquery-validation-unobtrusive/",
+      "files": [
+        "jquery.validate.unobtrusive.js"
+      ]
+    },
+    {
+      "library": "bootstrap@5.3.3",
+      "destination": "lib/bootstrap/",
+      "files": [
+        "js/bootstrap.bundle.js",
+        "js/bootstrap.bundle.js.map",
+        "css/bootstrap.css.map",
+        "css/bootstrap.css"
+      ]
+    }
+  ]
+}
