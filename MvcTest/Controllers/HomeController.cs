@@ -27,6 +27,49 @@ public class HomeController : Controller
         return View(viewModel);
     }
 
+    [HttpPost]
+    public ActionResult Update(int[]? ids)
+    {
+        if (ids is null || ids.Length <= 0)
+        {
+            return HttpNotFound();
+        }
+
+        foreach (var id in ids.Distinct())
+        {
+            using var conn = CreateConnection();
+            conn.Open();
+            var employee = conn.Get<Employee>(id);
+            if (employee is null)
+            {
+                return HttpNotFound();
+            }
+
+            var officer = conn.Get<Officer>(id);
+            if (officer is null)
+            {
+                officer = new Officer
+                {
+                    Id = employee.Id,
+                    FirstName = employee.FirstName,
+                    LastName = employee.LastName,
+                    BirthDate = employee.BirthDate.UtcDateTime,
+                    HireDate = employee.HireDate.UtcDateTime,
+                    IsMatch = true,
+                };
+
+                conn.Insert(officer);
+            }
+            else
+            {
+                officer.IsMatch = true;
+                conn.Update(officer);
+            }
+        }
+
+        return Json(data: "Approved", behavior: JsonRequestBehavior.AllowGet);
+    }
+
     public ActionResult Load()
     {
         var draw = Request.Form.GetValues("draw")?.FirstOrDefault();
@@ -40,7 +83,6 @@ public class HomeController : Controller
         var skip = start != null ? Convert.ToInt32(start) : 0;
 
         using var conn = CreateConnection();
-
         var query = conn.From<Employee>(sql =>
             {
                 // Apply search filter

@@ -4,29 +4,40 @@
     ViewBag.Title = "Home Page";
 }
 
+@Html.AntiForgeryToken()
 <div class="d-flex gap-3">
     <div>
         <h1>Mismatch</h1>
-        <table id="mismatch" class="table table-striped table-bordered nowrap employee">
+        <table id="mismatch" class="table table-striped table-bordered nowrap">
             <thead>
                 <tr>
-                    <th></th>
                     <th>Id</th>
-                    <th>BirthDate</th>
                     <th>FirstName</th>
                     <th>LastName</th>
+                    <th>BirthDate</th>
                     <th>HireDate</th>
                 </tr>
             </thead>
+            <tbody>
+                @foreach (var employee in Model.Employees)
+                {
+                    <tr>
+                        <td>@employee.Id</td>
+                        <td>@employee.FirstName</td>
+                        <td>@employee.LastName</td>
+                        <td>@employee.BirthDate.ToString("MM/dd/yyyy")</td>
+                        <td>@employee.HireDate.ToString("MM/dd/yyyy")</td>
+                    </tr>
+                }
+            </tbody>
         </table>
     </div>
 
     <div>
         <h1>Match</h1>
-        <table id="match" class="table table-striped table-bordered nowrap employee">
+        <table id="match" class="table table-striped table-bordered nowrap">
             <thead>
                 <tr>
-                    <th></th>
                     <th>Id</th>
                     <th>BirthDate</th>
                     <th>FirstName</th>
@@ -40,55 +51,94 @@
 
 <script type="text/javascript" charset="utf8">
     $(document).ready(function () {
-        var dt = new DataTable("table.employee",
-            {
-                ajax: {
-                    url: '/Home/Load',
-                    type: 'POST',
-                    datatype: 'json'
-                },
-                columns: [
-                    {data: null, orderable: false, searchable: false, render: DataTable.render.select()},
-                    { data: 'Id' },
-                    { data: 'BirthDate' },
-                    { data: 'FirstName' },
-                    { data: 'LastName' },
-                    { data: 'HireDate' }
-                ],
-                processing: true,
-                serverSide: true,
-                pageLength: 10,
-                responsive: true,
-                fixedHeader: true,
-                searching: true,
-                paging: true,
-                ordering: true,
-                autoWidth: true,
-                select: {
-                    style: 'os',
-                    headerCheckbox: false
+        var token = $('input[name="__RequestVerificationToken"]').val();
+
+        var instance = $('#mismatch').DataTable({
+            processing: true,
+            pageLength: 10,
+            responsive: true,
+            fixedHeader: true,
+            searching: true,
+            paging: true,
+            ordering: true,
+            autoWidth: true,
+            select: {
+                style: 'os'
+            },
+            layout: {
+                topStart: {
+                    buttons: [
+                        {
+                            text: 'Approve',
+                            action: function (e, dt, node, config) {
+                                var selectedRows = dt.rows({ selected: true }).data(); // Get selected rows
+
+                                if (selectedRows.length === 0) {
+                                    console.log("No row selected.");
+                                    return; // Exit if nothing is selected
+                                }
+
+                                // Extract Ids into an array
+                                var ids = $.map(selectedRows, function (row) {
+                                    return row[0]; // Ensure that 'Id' exists in your row data
+                                });
+
+                                var url = '@Url.Content("~/")' + "Home/Update";
+
+                                $.ajax({
+                                    url: url,
+                                    type: 'POST',
+                                    dataType: "json",
+                                    data: { ids: ids }, // Send as an array
+                                    headers: {
+                                        "RequestVerificationToken": token
+                                    },
+                                    success: function (data) {
+                                        if (data === "Approved") {
+                                            dt.rows({ selected: true })
+                                                .remove()
+                                                .draw();
+                                        }
+                                    }
+                                });
+                            },
+                            enabled: false
+                        }
+                    ]
                 }
-            });
-        //$('#employee').DataTable({
-        //    processing: true,
-        //    serverSide: true,
-        //    searching: true,
-        //    paging: true,
-        //    ordering: true,
-        //    autoWidth: true,
-        //    pageLength: 10,
-        //    ajax: {
-        //        url: '/Home/Load',
-        //        type: 'POST',
-        //        datatype: 'json'
-        //    },
-        //    columns: [
-        //        { data: 'Id' },
-        //        { data: 'BirthDate' },
-        //        { data: 'FirstName' },
-        //        { data: 'LastName' },
-        //        { data: 'HireDate' }
-        //    ]
-        //});
+            }
+        });
+
+        instance.on('select deselect', function () {
+            var selectedRows = instance.rows({ selected: true }).count();
+            instance.button(0).enable(selectedRows > 0);
+        });
+
+        $('#match').DataTable({
+            ajax: {
+                url: '/Home/Load',
+                type: 'POST',
+                datatype: 'json',
+                headers: {
+                    "RequestVerificationToken": token
+                },
+            },
+            columns: [
+                { data: 'Id' },
+                { data: 'BirthDate' },
+                { data: 'FirstName' },
+                { data: 'LastName' },
+                { data: 'HireDate' }
+            ],
+            processing: true,
+            serverSide: true,
+            pageLength: 10,
+            responsive: true,
+            fixedHeader: true,
+            searching: true,
+            paging: true,
+            ordering: true,
+            autoWidth: true,
+        });
     });
 </script>

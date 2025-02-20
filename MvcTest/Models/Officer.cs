@@ -1,10 +1,10 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
-namespace MvcTest;
+namespace MvcTest.Models;
 
-[Table("employee", Schema = "employees")]
-public partial class Employee
+[Table("officers", Schema = "employees")]
+public class Officer
 {
     [Key]
     [Column("id")]
@@ -23,4 +23,7 @@ public partial class Employee
 
     [Column("hire_date")]
     public DateTimeOffset HireDate { get; set; }
+
+    [Column("is_match")]
+    public bool IsMatch { get; set; }
 }
