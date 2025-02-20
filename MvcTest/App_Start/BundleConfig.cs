@@ -1,4 +1,5 @@
 ﻿using System.Web.Optimization;
+using BundleTransformer.Core.Bundles;
 
 namespace MvcTest;
 
@@ -8,28 +9,24 @@ public class BundleConfig
     public static void RegisterBundles(BundleCollection bundles)
     {
         bundles.Add(
-            new ScriptBundle("~/bundles/jquery").Include("~/lib/jquery/jquery-{version}.js")
+            new CustomScriptBundle("~/bundles/scripts/preload")
+                .Include("~/lib/modernizr/modernizr.js")
+                .Include("~/lib/jquery/jquery.js")
+                .IncludeDirectory("~/Scripts/PreLoad", "*.js")
         );
-
         bundles.Add(
-            new ScriptBundle("~/bundles/jqueryval")
+            new CustomScriptBundle("~/bundles/scripts")
+                .Include("~/lib/bootstrap/js/bootstrap.bundle.js")
+                .Include("~/lib/data-tables/datatables.js")
                 .Include("~/lib/jquery-validate/jquery.validate.js*")
                 .Include("~/lib/jquery-validation-unobtrusive/jquery.validate.unobtrusive.js")
-        );
-
-        // Use the development version of Modernizr to develop with and learn from. Then, when you're
-        // ready for production, use the build tool at https://modernizr.com to pick only the tests you need.
-        bundles.Add(
-            new ScriptBundle("~/bundles/modernizr").Include("~/lib/modernizr/modernizr.js")
+                .IncludeDirectory("~/Scripts/PostLoad", "*.js")
         );
 
         bundles.Add(
-            new ScriptBundle("~/bundles/bootstrap").Include("~/lib/bootstrap/js/bootstrap.js")
-        );
-
-        bundles.Add(
-            new StyleBundle("~/Content/css").Include(
+            new CustomStyleBundle("~/bundles/css").Include(
                 "~/lib/bootstrap/css/bootstrap.css",
+                "~/lib/data-tables/datatables.css",
                 "~/Content/site.css"
             )
         );

@@ -1,5 +1,9 @@
 ﻿using System.Globalization;
+using System.Linq.Expressions;
 using System.Web.Mvc;
+using Dommel;
+using MvcTest.Models;
+using Npgsql;
 using QuestPDF.Fluent;
 using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
@@ -8,9 +12,123 @@ namespace MvcTest.Controllers;
 
 public class HomeController : Controller
 {
+    private const string ConnectionString =
+        "Username=postgres;Database=employees;Password=\" \";Host=localhost";
+
+    private NpgsqlConnection CreateConnection() => new NpgsqlConnection(ConnectionString);
+
     public ActionResult Index()
     {
-        return View();
+        using var conn = CreateConnection();
+        conn.Open();
+
+        var employees = conn.From<Employee>(sql => sql.Page(1, 100).Select());
+        var viewModel = new EmployeeViewModel { Employees = employees };
+        return View(viewModel);
+    }
+
+    public ActionResult Load()
+    {
+        var draw = Request.Form.GetValues("draw")?.FirstOrDefault();
+        var start = Request.Form.GetValues("start")?.FirstOrDefault();
+        var length = Request.Form.GetValues("length")?.FirstOrDefault();
+        var order = Request.Form.GetValues("order[0][column]")?.FirstOrDefault();
+        var orderDir = Request.Form.GetValues("order[0][dir]")?.FirstOrDefault();
+        var searchValue = Request.Form.GetValues("search[value]")?.FirstOrDefault()?.ToLower();
+
+        var pageSize = length != null ? Convert.ToInt32(length) : 0;
+        var skip = start != null ? Convert.ToInt32(start) : 0;
+
+        using var conn = CreateConnection();
+
+        var query = conn.From<Employee>(sql =>
+            {
+                // Apply search filter
+                if (!string.IsNullOrEmpty(searchValue) && !string.IsNullOrWhiteSpace(searchValue))
+                {
+                    var parsedId = long.TryParse(searchValue, out var result) ? result : 0;
+                    var parsedBirthDate = DateTimeOffset.TryParse(searchValue, out var dateResult)
+                        ? dateResult.UtcDateTime
+                        : DateTimeOffset.UtcNow;
+
+                    var parsedHireDate = DateTimeOffset.TryParse(
+                        searchValue,
+                        out var hireDateResult
+                    )
+                        ? hireDateResult.UtcDateTime
+                        : DateTimeOffset.UtcNow;
+                    sql = sql.Where(e =>
+                        (
+                            e.Id == parsedId
+                            || e.BirthDate == parsedBirthDate
+                            || e.FirstName.Contains(searchValue)
+                            || e.LastName.Contains(searchValue)
+                            || e.HireDate == parsedHireDate
+                        )
+                    );
+                }
+
+                // Apply sorting
+                var columnMap = new Dictionary<string?, Expression<Func<Employee, object?>>>
+                {
+                    { "0", e => e.Id },
+                    { "1", e => e.BirthDate },
+                    { "2", e => e.FirstName },
+                    { "3", e => e.LastName },
+                    { "4", e => e.HireDate },
+                };
+
+                if (!string.IsNullOrEmpty(order) && !string.IsNullOrEmpty(orderDir))
+                {
+                    if (columnMap.TryGetValue(order, out var sortExpression))
+                    {
+                        if (!string.IsNullOrEmpty(orderDir))
+                        {
+                            sql =
+                                orderDir is not null
+                                && orderDir.Equals(
+                                    "DESC",
+                                    StringComparison.CurrentCultureIgnoreCase
+                                )
+                                    ? sql.OrderByDescending(sortExpression)
+                                    : sql.OrderBy(sortExpression);
+                        }
+                    }
+                    else
+                    {
+                        sql = sql.OrderBy(e => e.Id);
+                    }
+                }
+
+                sql.Select();
+            })
+            .ToArray();
+
+        // Get total records count
+        var recordsTotal = conn.Count<Employee>();
+        var recordsFiltered = query.Length;
+        // Apply pagination
+        var records = query
+            .Skip(skip)
+            .Take(pageSize)
+            .Select(employee => new
+            {
+                employee.Id,
+                employee.FirstName,
+                employee.LastName,
+                BirthDate = employee.BirthDate.ToLocalTime().ToString("MM/dd/yyyy"),
+                HireDate = employee.HireDate.ToLocalTime().ToString("MM/dd/yyyy"),
+            });
+
+        return Json(
+            new
+            {
+                draw = Convert.ToInt32(draw),
+                recordsFiltered,
+                recordsTotal,
+                data = records,
+            }
+        );
     }
 
     public ActionResult About()
@@ -42,7 +160,7 @@ public class HomeController : Controller
 
     public ActionResult GeneratePdf()
     {
-        byte[] bytes = CreateDocument().GeneratePdf();
+        var bytes = CreateDocument().GeneratePdf();
         return File(bytes, "application/pdf");
     }
 
