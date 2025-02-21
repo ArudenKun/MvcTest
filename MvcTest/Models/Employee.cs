@@ -1,26 +1,25 @@
-﻿using System.ComponentModel.DataAnnotations;
-using System.ComponentModel.DataAnnotations.Schema;
+﻿using FreeSql.DataAnnotations;
 
 namespace MvcTest.Models;
 
-[Table("employee", Schema = "employees")]
-public partial class Employee
+[Table(Name = "employee")]
+public class Employee
 {
-    [Key]
-    [Column("id")]
+    [Column(IsPrimary = true, Name = "id")]
     public long Id { get; set; }
 
-    [Column("birth_date")]
+    [Column(Name = "birth_date")]
     public DateTimeOffset BirthDate { get; set; }
 
-    [Column("first_name")]
-    [StringLength(14)]
+    [Column(Name = "first_name", StringLength = 14)]
     public string FirstName { get; set; } = null!;
 
-    [Column("last_name")]
-    [StringLength(16)]
+    [Column(Name = "last_name", StringLength = 16)]
     public string LastName { get; set; } = null!;
 
-    [Column("hire_date")]
+    [Column(Name = "hire_date")]
     public DateTimeOffset HireDate { get; set; }
+
+    [Column(Name = "is_match")]
+    public bool IsMatch { get; set; }
 }

@@ -4,7 +4,7 @@
     "anonymousAuthentication": true,
     "iisExpress": {
       "applicationUrl": "http://localhost:36541",
-      "sslPort": 0,
+      "sslPort": 0
     }
   },
   "profiles": {
@@ -14,6 +14,12 @@
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "Development"
       }
+    },
+    "IIS Express Executable": {
+      "commandName": "Executable",
+      "executablePath": "C:\\Program Files\\IIS Express\\iisexpress.exe",
+      "commandLineArgs": "/config:$(SolutionDir).vs\\MvcTest\\config\\applicationhost.config /site:MvcTest /apppool:Clr4IntegratedAppPool",
+      "workingDirectory": "C:\\Program Files\\IIS Express"
     }
   }
 }
