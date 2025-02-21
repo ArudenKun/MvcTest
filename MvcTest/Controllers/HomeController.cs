@@ -2,11 +2,8 @@
 using System.Linq.Expressions;
 using System.Web.ModelBinding;
 using System.Web.Mvc;
-using Dapper;
-using Dapper.SimpleSqlBuilder;
 using FreeSql;
 using MvcTest.Models;
-using MySqlConnector;
 using QuestPDF.Fluent;
 using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
@@ -15,10 +12,12 @@ namespace MvcTest.Controllers;
 
 public class HomeController : Controller
 {
-    private const string ConnectionString = "Server=localhost;Database=cps;User ID=root;Password=;";
-    private static IFreeSql _freeSql = new FreeSql.FreeSqlBuilder()
-        .UseConnectionString(DataType.MySql, ConnectionString)
-        .UseMonitorCommand(cmd => Console.WriteLine($"Sql：{cmd.CommandText}"))
+    private const string ConnectionString =
+        "Host=localhost;Port=5432;Username=postgres;Password=;Database=employees;Pooling=true;Minimum Pool Size=1";
+
+    private static readonly IFreeSql FreeSql = new FreeSqlBuilder()
+        .UseConnectionString(DataType.PostgreSQL, ConnectionString)
+        .UseMonitorCommand(cmd => Console.WriteLine($"Sql: {cmd.CommandText}"))
         .Build();
 
     public ActionResult Index()
@@ -30,19 +29,17 @@ public class HomeController : Controller
     [HttpPost]
     public ActionResult UpdateAll()
     {
-        var builder = SimpleBuilder
-            .CreateFluent()
-            .Update($"employee")
-            .Set($"is_match = {true}")
-            .Where($"is_match = {false}");
-
-        connection.Execute(builder.Sql, builder.Parameters);
+        FreeSql
+            .Update<Employee>()
+            .Set(x => x.IsMatch, true)
+            .Where(x => x.IsMatch == false)
+            .ExecuteAffrows();
 
         return Json(data: "Approved", behavior: JsonRequestBehavior.AllowGet);
     }
 
     [HttpPost]
-    public ActionResult Update(int[]? ids)
+    public ActionResult Update(long[]? ids)
     {
         if (ids is null || ids.Length == 0)
         {
@@ -51,17 +48,12 @@ public class HomeController : Controller
 
         ids = ids.Distinct().ToArray();
 
-        using var connection = CreateConnection();
-        connection.Open();
+        FreeSql
+            .Update<Employee>()
+            .Set(x => x.IsMatch, true)
+            .Where(x => ids.Contains(x.Id))
+            .ExecuteAffrows();
 
-        var idList = string.Join(", ", ids);
-        var builder = SimpleBuilder
-            .CreateFluent()
-            .Update($"employee")
-            .Set($"is_match = {true}")
-            .Where($"Id IN ({idList})");
-
-        connection.Execute(builder.Sql, builder.Parameters);
         return Json(data: "Approved", behavior: JsonRequestBehavior.AllowGet);
     }
 
@@ -71,22 +63,20 @@ public class HomeController : Controller
         var draw = Request.Form.GetValues("draw")?.FirstOrDefault();
         var start = Request.Form.GetValues("start")?.FirstOrDefault();
         var length = Request.Form.GetValues("length")?.FirstOrDefault();
-        var order = Request.Form.GetValues("order[0][column]")?.FirstOrDefault();
-        var orderDir = Request.Form.GetValues("order[0][dir]")?.FirstOrDefault();
-        var searchValue = Request.Form.GetValues("search[value]")?.FirstOrDefault()?.ToLower();
+        var order = Request.Form.GetValues("order[0][column]")?.FirstOrDefault() ?? string.Empty;
+        var orderDir = Request.Form.GetValues("order[0][dir]")?.FirstOrDefault() ?? string.Empty;
+        var searchValue =
+            Request.Form.GetValues("search[value]")?.FirstOrDefault()?.ToLower() ?? string.Empty;
 
-        var pageSize = length != null ? Convert.ToInt32(length) : 0;
+        var pageSize = length != null ? Convert.ToInt32(length) : 10; // Default pageSize if null
         var skip = start != null ? Convert.ToInt32(start) : 0;
+        var page = pageSize > 0 ? skip / pageSize + 1 : 1;
 
-        using var conn = CreateConnection();
+        // Build the base query
+        var query = FreeSql.Select<Employee>().Where(x => x.IsMatch == matched);
 
-        var builder = SimpleBuilder
-            .CreateFluent()
-            .Select($"*")
-            .From($"employee")
-            .Where($"is_match = {matched}");
-
-        if (!string.IsNullOrEmpty(searchValue) && !string.IsNullOrWhiteSpace(searchValue))
+        // Apply filtering
+        if (!string.IsNullOrWhiteSpace(searchValue))
         {
             long? parsedId = long.TryParse(searchValue, out var idResult) ? idResult : null;
             DateTimeOffset? parsedBirthDate = DateTimeOffset.TryParse(
@@ -103,93 +93,60 @@ public class HomeController : Controller
                 ? hireDateResult.UtcDateTime
                 : null;
 
-            builder = builder
-                .OrWhere(parsedId.HasValue, $"Id = {parsedId}")
-                .OrWhere(
-                    parsedBirthDate.HasValue,
-                    $"birth_date = {parsedBirthDate!.Value.Date.ToString("MM/dd/yyyy")}"
-                )
-                .OrWhere(
-                    parsedHireDate.HasValue,
-                    $"hire_date = {parsedHireDate!.Value.Date.ToString("MM/dd/yyyy")}"
-                )
-                .OrWhere($"first_name like '%{searchValue}%'")
-                .OrWhere($"last_name like '%{searchValue}%'");
+            Expression<Func<Employee, bool>> where = null!;
+
+            where = where.Or(x => x.FirstName.Contains(searchValue));
+            where = where.Or(x => x.LastName.Contains(searchValue));
+
+            if (parsedId.HasValue)
+            {
+                where = where.Or(x => x.Id == parsedId);
+            }
+
+            if (parsedBirthDate.HasValue)
+            {
+                where = where.Or(x => x.BirthDate == parsedBirthDate);
+            }
+
+            if (parsedHireDate.HasValue)
+            {
+                where = where.Or(x => x.HireDate == parsedHireDate);
+            }
+
+            query = query.Where(where);
         }
 
-        var query = conn.From<Employee>(sql =>
-            {
-                sql.Where(x => x.IsMatch == matched);
-                // Apply search filter
-                if (!string.IsNullOrEmpty(searchValue) && !string.IsNullOrWhiteSpace(searchValue))
-                {
-                    var parsedId = long.TryParse(searchValue, out var idResult) ? idResult : 0;
-                    var parsedBirthDate = DateTimeOffset.TryParse(
-                        searchValue,
-                        out var birthDateResult
-                    )
-                        ? birthDateResult.UtcDateTime
-                        : DateTimeOffset.MinValue.UtcDateTime;
-                    ;
-                    var parsedHireDate = DateTimeOffset.TryParse(
-                        searchValue,
-                        out var hireDateResult
-                    )
-                        ? hireDateResult.UtcDateTime
-                        : DateTimeOffset.MinValue.UtcDateTime;
+        // Sorting Map
+        var columnMap = new Dictionary<string?, Expression<Func<Employee, object?>>>
+        {
+            { "0", e => e.Id },
+            { "1", e => e.FirstName },
+            { "2", e => e.LastName },
+            { "3", e => e.BirthDate },
+            { "4", e => e.HireDate },
+        };
 
-                    sql = sql.Where(e =>
-                        e.Id == parsedId
-                        || e.FirstName.Contains(searchValue)
-                        || e.LastName.Contains(searchValue)
-                        || e.BirthDate == parsedBirthDate
-                        || e.HireDate == parsedHireDate
-                    );
-                }
+        if (columnMap.TryGetValue(order, out var sortExpression))
+        {
+            query = query.OrderByIf(
+                !string.IsNullOrEmpty(order) && !string.IsNullOrEmpty(orderDir),
+                sortExpression,
+                orderDir.Equals("DESC", StringComparison.CurrentCultureIgnoreCase)
+            );
+        }
+        else
+        {
+            query = query.OrderBy(e => e.Id); // Default ordering
+        }
 
-                if (!string.IsNullOrEmpty(order) && !string.IsNullOrEmpty(orderDir))
-                {
-                    // Apply sorting
-                    var columnMap = new Dictionary<string?, Expression<Func<Employee, object?>>>
-                    {
-                        { "0", e => e.Id },
-                        { "1", e => e.BirthDate },
-                        { "2", e => e.FirstName },
-                        { "3", e => e.LastName },
-                        { "4", e => e.HireDate },
-                    };
-
-                    if (columnMap.TryGetValue(order, out var sortExpression))
-                    {
-                        if (!string.IsNullOrEmpty(orderDir))
-                        {
-                            sql =
-                                orderDir is not null
-                                && orderDir.Equals(
-                                    "DESC",
-                                    StringComparison.CurrentCultureIgnoreCase
-                                )
-                                    ? sql.OrderByDescending(sortExpression)
-                                    : sql.OrderBy(sortExpression);
-                        }
-                    }
-                    else
-                    {
-                        sql = sql.OrderBy(e => e.Id);
-                    }
-                }
-
-                sql.Select();
-            })
-            .ToArray();
-
-        // Get total records count
-        var recordsTotal = conn.Count<Employee>();
-        var recordsFiltered = query.Length;
-        // Apply pagination
-        var records = query
-            .Skip(skip)
-            .Take(pageSize)
+        // Get total records before filtering
+        var rowsTotal = FreeSql.Select<Employee>().Count();
+        // Get total records after filtering
+        var rowsFiltered = query.Count();
+        // Fetch paginated data (avoid unnecessary loading of full records)
+        var rows = query
+            .Page(page, pageSize)
+            .ToList()
             .Select(employee => new
             {
                 DT_RowId = employee.Id,
@@ -198,15 +155,16 @@ public class HomeController : Controller
                 employee.LastName,
                 BirthDate = employee.BirthDate.ToLocalTime().ToString("MM/dd/yyyy"),
                 HireDate = employee.HireDate.ToLocalTime().ToString("MM/dd/yyyy"),
-            });
+            })
+            .ToArray();
 
         return Json(
             new
             {
                 draw = Convert.ToInt32(draw),
-                recordsFiltered,
-                recordsTotal,
-                data = records,
+                recordsFiltered = rowsFiltered,
+                recordsTotal = rowsTotal,
+                data = rows,
             }
         );
     }

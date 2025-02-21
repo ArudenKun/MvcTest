@@ -27,9 +27,9 @@
             <thead>
             <tr>
                 <th>Id</th>
-                <th>BirthDate</th>
                 <th>FirstName</th>
                 <th>LastName</th>
+                <th>BirthDate</th>
                 <th>HireDate</th>
             </tr>
             </thead>
@@ -65,9 +65,9 @@
             },
             columns: [
                 {data: 'Id'},
-                {data: 'BirthDate'},
                 {data: 'FirstName'},
                 {data: 'LastName'},
+                {data: 'BirthDate'},
                 {data: 'HireDate'}
             ]
         });
@@ -98,9 +98,9 @@
             },
             columns: [
                 {data: 'Id'},
-                {data: 'BirthDate'},
                 {data: 'FirstName'},
                 {data: 'LastName'},
+                {data: 'BirthDate'},
                 {data: 'HireDate'}
             ],
             layout: {
@@ -167,6 +167,7 @@
                                         }
                                     },
                                     complete: function () {
+                                        mismatchInstance.button(1).enable(false);
                                         cb()
                                     }
                                 });
@@ -179,7 +180,9 @@
 
         mismatchInstance.on('select deselect', function () {
             const selectedRows = mismatchInstance.rows({selected: true}).count();
+            const rows = mismatchInstance.rows().count();
             mismatchInstance.button(0).enable(selectedRows > 0);
+            mismatchInstance.button(1).enable(rows > 0);
         });
     });
 </script>
