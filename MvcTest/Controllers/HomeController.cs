@@ -7,6 +7,7 @@ using MvcTest.Models;
 using QuestPDF.Fluent;
 using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
+using ZiggyCreatures.Caching.Fusion;
 
 namespace MvcTest.Controllers;
 
@@ -20,6 +21,8 @@ public class HomeController : Controller
         .UseMonitorCommand(cmd => Console.WriteLine($"Sql: {cmd.CommandText}"))
         .Build();
 
+    private static readonly IFusionCache FusionCache = new FusionCache(new FusionCacheOptions());
+
     public ActionResult Index()
     {
         var viewModel = new EmployeeViewModel();
@@ -27,7 +30,7 @@ public class HomeController : Controller
     }
 
     [HttpPost]
-    public ActionResult UpdateAll()
+    public ActionResult ApproveAll()
     {
         FreeSql
             .Update<Employee>()
@@ -39,7 +42,7 @@ public class HomeController : Controller
     }
 
     [HttpPost]
-    public ActionResult Update(long[]? ids)
+    public ActionResult Approve(long[]? ids)
     {
         if (ids is null || ids.Length == 0)
         {
@@ -54,7 +57,24 @@ public class HomeController : Controller
             .Where(x => ids.Contains(x.Id))
             .ExecuteAffrows();
 
-        return Json(data: "Approved", behavior: JsonRequestBehavior.AllowGet);
+        FusionCache.RemoveByTag([nameof(Employee), nameof(Load)]);
+        return Json(data: "Approved");
+    }
+
+    public ActionResult Disapprove(long[]? ids)
+    {
+        if (ids is null || ids.Length == 0)
+        {
+            return new HttpStatusCodeResult(400, "No valid IDs provided.");
+        }
+
+        ids = ids.Distinct().ToArray();
+
+        FreeSql.Delete<Employee>().Where(x => ids.Contains(x.Id)).ExecuteAffrows();
+
+        FusionCache.RemoveByTag([nameof(Employee), nameof(Load), "total"]);
+
+        return Json(data: "Disapproved");
     }
 
     [HttpPost]
@@ -71,6 +91,9 @@ public class HomeController : Controller
         var pageSize = length != null ? Convert.ToInt32(length) : 10; // Default pageSize if null
         var skip = start != null ? Convert.ToInt32(start) : 0;
         var page = pageSize > 0 ? skip / pageSize + 1 : 1;
+
+        var cacheKey =
+            $"employees_matched:{matched}_page:{page}_size:{pageSize}_search:{searchValue}_order:{order}_{orderDir}";
 
         // Build the base query
         var query = FreeSql.Select<Employee>().Where(x => x.IsMatch == matched);
@@ -140,33 +163,51 @@ public class HomeController : Controller
         }
 
         // Get total records before filtering
-        var rowsTotal = FreeSql.Select<Employee>().Count();
-        // Get total records after filtering
-        var rowsFiltered = query.Count();
-        // Fetch paginated data (avoid unnecessary loading of full records)
-        var rows = query
-            .Page(page, pageSize)
-            .ToList()
-            .Select(employee => new
+        var rowsTotalCache = FusionCache.GetOrSet(
+            $"{cacheKey}-rows-total",
+            _ => FreeSql.Select<Employee>().Count(),
+            options => options.SetDurationMin(10),
+            tags: [nameof(Employee), nameof(Load), "total"]
+        );
+        var rowsFilteredCache = FusionCache.GetOrSet(
+            $"{cacheKey}-rows-filtered",
+            _ => query.Count(),
+            options => options.SetDurationMin(10),
+            tags: [nameof(Employee), nameof(Load)]
+        );
+        var rowsCache = FusionCache.GetOrSet(
+            $"{cacheKey}-rows",
+            _ =>
+                query
+                    .Page(page, pageSize)
+                    .ToList(employee => new
+                    {
+                        employee.Id,
+                        employee.FirstName,
+                        employee.LastName,
+                        employee.BirthDate,
+                        employee.HireDate,
+                    }),
+            options => options.SetDurationMin(10),
+            tags: [nameof(Employee), nameof(Load)]
+        );
+
+        var result = DataTableDto.Create(
+            Convert.ToInt32(draw),
+            rowsTotalCache,
+            rowsFilteredCache,
+            rowsCache.Select(employee => new LoadDto
             {
-                DT_RowId = employee.Id,
-                employee.Id,
-                employee.FirstName,
-                employee.LastName,
+                RowId = employee.Id,
+                Id = employee.Id,
+                FirstName = employee.FirstName,
+                LastName = employee.LastName,
                 BirthDate = employee.BirthDate.ToLocalTime().ToString("MM/dd/yyyy"),
                 HireDate = employee.HireDate.ToLocalTime().ToString("MM/dd/yyyy"),
             })
-            .ToArray();
-
-        return Json(
-            new
-            {
-                draw = Convert.ToInt32(draw),
-                recordsFiltered = rowsFiltered,
-                recordsTotal = rowsTotal,
-                data = rows,
-            }
         );
+
+        return Json(result);
     }
 
     public ActionResult About()
@@ -182,13 +223,6 @@ public class HomeController : Controller
         //return View();
     }
 
-    public ActionResult Contact()
-    {
-        ViewBag.Message = "Your contact page.";
-
-        return View();
-    }
-
     public ActionResult Report()
     {
         ViewBag.Message = "Your contact page.";
@@ -200,11 +234,6 @@ public class HomeController : Controller
     {
         var bytes = CreateDocument().GeneratePdf();
         return File(bytes, "application/pdf");
-    }
-
-    public ActionResult RenderPdf()
-    {
-        return PartialView("_ReportView");
     }
 
     private static IDocument CreateDocument() =>

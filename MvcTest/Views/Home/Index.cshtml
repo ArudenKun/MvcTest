@@ -5,35 +5,40 @@
 }
 
 @Html.AntiForgeryToken()
-<div class="d-flex gap-3">
-    <div>
-        <h1>Mismatch</h1>
-        <table id="mismatch" class="table table-striped table-bordered nowrap">
-            <thead>
-            <tr>
-                <th>Id</th>
-                <th>FirstName</th>
-                <th>LastName</th>
-                <th>BirthDate</th>
-                <th>HireDate</th>
-            </tr>
-            </thead>
-        </table>
-    </div>
-
-    <div>
-        <h1>Match</h1>
-        <table id="match" class="table table-striped table-bordered nowrap">
-            <thead>
-            <tr>
-                <th>Id</th>
-                <th>FirstName</th>
-                <th>LastName</th>
-                <th>BirthDate</th>
-                <th>HireDate</th>
-            </tr>
-            </thead>
-        </table>
+<div class="container">
+    <div class="row">
+        <div class="col">
+            <h1 class="text-center">Mismatch</h1>
+            <div class="border border-secondary p-2">
+                <table id="mismatch" class="table table-striped table-bordered nowrap">
+                    <thead>
+                    <tr>
+                        <th>Id</th>
+                        <th>FirstName</th>
+                        <th>LastName</th>
+                        <th>BirthDate</th>
+                        <th>HireDate</th>
+                    </tr>
+                    </thead>
+                </table>
+            </div>
+        </div>
+        <div class="col">
+            <h1 class="text-center">Match</h1>
+            <div class="border border-secondary p-2">
+                <table id="match" class="table table-striped table-bordered nowrap">
+                    <thead>
+                    <tr>
+                        <th>Id</th>
+                        <th>FirstName</th>
+                        <th>LastName</th>
+                        <th>BirthDate</th>
+                        <th>HireDate</th>
+                    </tr>
+                    </thead>
+                </table>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -119,7 +124,7 @@
                                 console.log("Selected: " + selectedRows);
 
                                 const ids = selectedRows.filter(row => !sentIds.has(row));
-                                const url = '@Url.Content("~/")' + "Home/Update";
+                                const url = '@Url.Content("~/")' + "Home/Approve";
                                 $.ajax({
                                     url: url,
                                     type: 'POST',
@@ -149,7 +154,7 @@
                             text: "Approve All",
                             async: 100,
                             action: function (e, dt, node, config, cb) {
-                                const url = '@Url.Content("~/")' + "Home/UpdateAll";
+                                const url = '@Url.Content("~/")' + "Home/ApproveAll";
                                 $.ajax({
                                     url: url,
                                     type: 'POST',
@@ -159,6 +164,7 @@
                                     },
                                     beforeSend: function () {
                                         mismatchInstance.button(0).enable(false);
+                                        mismatchInstance.button(1).enable(false);
                                     },
                                     success: function (response) {
                                         if (response === "Approved") {
@@ -168,7 +174,7 @@
                                     },
                                     complete: function () {
                                         mismatchInstance.button(1).enable(false);
-                                        cb()
+                                        cb();
                                     }
                                 });
                             }

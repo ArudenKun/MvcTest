@@ -6,7 +6,7 @@ namespace MvcTest.Models;
 public class Employee
 {
     [Column(IsPrimary = true, Name = "id")]
-    public long Id { get; set; }
+    public int Id { get; set; }
 
     [Column(Name = "first_name", StringLength = 14)]
     public string FirstName { get; set; } = null!;
