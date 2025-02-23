@@ -39,6 +39,47 @@
         "css/bootstrap.css.map",
         "css/bootstrap.css"
       ]
+    },
+    {
+      "provider": "jsdelivr",
+      "library": "filepond@4.32.7",
+      "destination": "lib/filepond/",
+      "files": [
+        "dist/filepond.js",
+        "dist/filepond.css"
+      ]
+    },
+    {
+      "provider": "jsdelivr",
+      "library": "jquery-filepond@1.0.0",
+      "destination": "lib/filepond/",
+      "files": [
+        "filepond.jquery.js"
+      ]
+    },
+    {
+      "provider": "jsdelivr",
+      "library": "filepond-plugin-file-validate-type@1.2.9",
+      "destination": "lib/filepond",
+      "files": [
+        "dist/filepond-plugin-file-validate-type.js"
+      ]
+    },
+    {
+      "provider": "jsdelivr",
+      "library": "filepond-plugin-file-validate-size@2.2.8",
+      "destination": "lib/filepond",
+      "files": [
+        "dist/filepond-plugin-file-validate-size.js"
+      ]
+    },
+    {
+      "library": "sweetalert2@11.15.10",
+      "destination": "lib/sweetalert2",
+      "files": [
+        "sweetalert2.css",
+        "sweetalert2.js"
+      ]
     }
   ]
 }

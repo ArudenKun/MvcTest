@@ -38,6 +38,9 @@ public class HomeController : Controller
             .Where(x => x.IsMatch == false)
             .ExecuteAffrows();
 
+        FusionCache.RemoveByTag([nameof(Employee), nameof(Load), "total"]);
+        FusionCache.RemoveByTag([nameof(Employee), nameof(Load)]);
+
         return Json(data: "Approved", behavior: JsonRequestBehavior.AllowGet);
     }
 
@@ -57,6 +60,7 @@ public class HomeController : Controller
             .Where(x => ids.Contains(x.Id))
             .ExecuteAffrows();
 
+        FusionCache.RemoveByTag([nameof(Employee), nameof(Load), "total"]);
         FusionCache.RemoveByTag([nameof(Employee), nameof(Load)]);
         return Json(data: "Approved");
     }
@@ -71,8 +75,8 @@ public class HomeController : Controller
         ids = ids.Distinct().ToArray();
 
         FreeSql.Delete<Employee>().Where(x => ids.Contains(x.Id)).ExecuteAffrows();
-
         FusionCache.RemoveByTag([nameof(Employee), nameof(Load), "total"]);
+        FusionCache.RemoveByTag([nameof(Employee), nameof(Load)]);
 
         return Json(data: "Disapproved");
     }
@@ -102,40 +106,27 @@ public class HomeController : Controller
         if (!string.IsNullOrWhiteSpace(searchValue))
         {
             long? parsedId = long.TryParse(searchValue, out var idResult) ? idResult : null;
-            DateTimeOffset? parsedBirthDate = DateTimeOffset.TryParse(
-                searchValue,
-                out var birthDateResult
-            )
-                ? birthDateResult.UtcDateTime
+            DateTime? parsedBirthDate = DateTime.TryParse(searchValue, out var birthDateResult)
+                ? birthDateResult
                 : null;
-
-            DateTimeOffset? parsedHireDate = DateTimeOffset.TryParse(
-                searchValue,
-                out var hireDateResult
-            )
-                ? hireDateResult.UtcDateTime
+            DateTime? parsedHireDate = DateTime.TryParse(searchValue, out var hireDateResult)
+                ? hireDateResult
                 : null;
-
             Expression<Func<Employee, bool>> where = null!;
-
             where = where.Or(x => x.FirstName.Contains(searchValue));
             where = where.Or(x => x.LastName.Contains(searchValue));
-
             if (parsedId.HasValue)
             {
                 where = where.Or(x => x.Id == parsedId);
             }
-
             if (parsedBirthDate.HasValue)
             {
-                where = where.Or(x => x.BirthDate == parsedBirthDate);
+                where = where.Or(x => x.BirthDate == parsedBirthDate.Value);
             }
-
             if (parsedHireDate.HasValue)
             {
-                where = where.Or(x => x.HireDate == parsedHireDate);
+                where = where.Or(x => x.HireDate == parsedHireDate.Value);
             }
-
             query = query.Where(where);
         }
 
@@ -208,6 +199,11 @@ public class HomeController : Controller
         );
 
         return Json(result);
+    }
+
+    public ActionResult Upload()
+    {
+        return new EmptyResult();
     }
 
     public ActionResult About()
