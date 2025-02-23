@@ -67,6 +67,7 @@
 
         const sentIds = new Set();
         const token = $('input[name="__RequestVerificationToken"]').val();
+        const scrollYSize = '50vh';
 
         const matchInstance = $('#match').DataTable({
             processing: true,
@@ -75,10 +76,12 @@
             responsive: true,
             fixedHeader: true,
             searching: true,
-            paging: true,
             ordering: true,
             autoWidth: true,
-            stateSave: false,
+            paging: true,
+            scrollY: scrollYSize,
+            deferRender: true,
+            scroller: false,
             ajax: {
                 url: '/Home/Load',
                 type: 'POST',
@@ -96,7 +99,10 @@
                 {data: 'LastName'},
                 {data: 'BirthDate'},
                 {data: 'HireDate'}
-            ]
+            ],
+            layout: {
+                bottomEnd: 'inputPaging'
+            }
         });
 
         const mismatchInstance = $('#mismatch').DataTable({
@@ -106,13 +112,15 @@
             responsive: true,
             fixedHeader: true,
             searching: true,
-            paging: true,
             ordering: true,
             autoWidth: true,
             select: {
                 style: 'os'
             },
-            stateSave: false,
+            paging: true,
+            scrollY: scrollYSize,
+            deferRender: true,
+            scroller: false,
             ajax: {
                 url: '/Home/Load?matched=false',
                 type: 'POST',
@@ -132,7 +140,8 @@
                 {data: 'HireDate'}
             ],
             layout: {
-                bottomStart: {
+                bottomEnd: 'inputPaging',
+                topStart: {
                     buttons: [
                         {
                             text: 'Approve',

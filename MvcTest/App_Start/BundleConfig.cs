@@ -21,6 +21,7 @@ public class BundleConfig
             new CustomScriptBundle("~/bundles/scripts") { Orderer = new NullOrderer() }
                 .Include("~/lib/bootstrap/js/bootstrap.bundle.js")
                 .Include("~/lib/data-tables/datatables.js")
+                .IncludeDirectory("~/lib/data-tables/plugins", "*.js", true)
                 .Include("~/lib/jquery-validate/jquery.validate.js*")
                 .Include("~/lib/jquery-validation-unobtrusive/jquery.validate.unobtrusive.js")
                 .Include("~/lib/sweetalert2/sweetalert2.js")
@@ -29,13 +30,15 @@ public class BundleConfig
         );
 
         bundles.Add(
-            new CustomStyleBundle("~/bundles/css").Include(
-                "~/lib/bootstrap/css/bootstrap.css",
-                "~/lib/data-tables/datatables.css",
-                "~/lib/filepond/dist/filepond.css",
-                "~/lib/sweetalert2/sweetalert2.css",
-                "~/Content/site.css"
-            )
+            new CustomStyleBundle("~/bundles/css")
+                .Include(
+                    "~/lib/bootstrap/css/bootstrap.css",
+                    "~/lib/data-tables/datatables.css",
+                    "~/lib/filepond/dist/filepond.css",
+                    "~/lib/sweetalert2/sweetalert2.css",
+                    "~/Content/site.css"
+                )
+                .IncludeDirectory("~/lib/data-tables/plugins", "*.css", true)
         );
 
 #if DEBUG
