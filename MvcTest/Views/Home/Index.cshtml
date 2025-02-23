@@ -144,8 +144,6 @@
                                     return; // Exit if nothing is selected
                                 }
 
-                                console.log("Selected: " + selectedRows);
-
                                 const ids = selectedRows.filter(row => !sentIds.has(row));
                                 const url = '@Url.Content("~/")' + "Home/Approve";
                                 $.ajax({
@@ -161,8 +159,8 @@
                                     },
                                     success: function (data) {
                                         if (data === "Approved") {
-                                            dt.ajax.reload();
-                                            matchInstance.ajax.reload();
+                                            dt.ajax.reload(null, false);
+                                            matchInstance.ajax.reload(null, false);
                                             ids.forEach(id => sentIds.add(id));
                                         }
                                     },
@@ -191,8 +189,8 @@
                                     },
                                     success: function (response) {
                                         if (response === "Approved") {
-                                            dt.ajax.reload();
-                                            matchInstance.ajax.reload();
+                                            dt.ajax.reload(null, false);
+                                            matchInstance.ajax.reload(null, false);
                                         }
                                     },
                                     complete: function () {

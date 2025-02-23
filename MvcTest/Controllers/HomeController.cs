@@ -38,7 +38,7 @@ public class HomeController : Controller
             .Where(x => x.IsMatch == false)
             .ExecuteAffrows();
 
-        FusionCache.RemoveByTag([nameof(Employee), nameof(Load), "total"]);
+        FusionCache.Remove($"{nameof(Load)}-rows-total");
         FusionCache.RemoveByTag([nameof(Employee), nameof(Load)]);
 
         return Json(data: "Approved", behavior: JsonRequestBehavior.AllowGet);
@@ -60,7 +60,7 @@ public class HomeController : Controller
             .Where(x => ids.Contains(x.Id))
             .ExecuteAffrows();
 
-        FusionCache.RemoveByTag([nameof(Employee), nameof(Load), "total"]);
+        FusionCache.Remove($"{nameof(Load)}-rows-total");
         FusionCache.RemoveByTag([nameof(Employee), nameof(Load)]);
         return Json(data: "Approved");
     }
@@ -75,7 +75,7 @@ public class HomeController : Controller
         ids = ids.Distinct().ToArray();
 
         FreeSql.Delete<Employee>().Where(x => ids.Contains(x.Id)).ExecuteAffrows();
-        FusionCache.RemoveByTag([nameof(Employee), nameof(Load), "total"]);
+        FusionCache.Remove($"{nameof(Load)}-rows-total");
         FusionCache.RemoveByTag([nameof(Employee), nameof(Load)]);
 
         return Json(data: "Disapproved");
@@ -84,93 +84,83 @@ public class HomeController : Controller
     [HttpPost]
     public ActionResult Load([QueryString] bool matched = true)
     {
-        var draw = Request.Form.GetValues("draw")?.FirstOrDefault();
-        var start = Request.Form.GetValues("start")?.FirstOrDefault();
-        var length = Request.Form.GetValues("length")?.FirstOrDefault();
-        var order = Request.Form.GetValues("order[0][column]")?.FirstOrDefault() ?? string.Empty;
-        var orderDir = Request.Form.GetValues("order[0][dir]")?.FirstOrDefault() ?? string.Empty;
-        var searchValue =
-            Request.Form.GetValues("search[value]")?.FirstOrDefault()?.ToLower() ?? string.Empty;
+        var draw = int.TryParse(
+            Request.Form.GetValues("draw")?.FirstOrDefault()?.Trim(),
+            out var intParseResult
+        )
+            ? intParseResult
+            : 0;
+        var start = Request.Form.GetValues("start")?.FirstOrDefault()?.Trim();
+        var length = Request.Form.GetValues("length")?.FirstOrDefault()?.Trim();
+        var order =
+            Request
+                .Form.GetValues(
+                    "columns["
+                        + Request.Form.GetValues("order[0][column]")?.FirstOrDefault()
+                        + "][data]"
+                )
+                ?.FirstOrDefault()
+                ?.Trim() ?? string.Empty;
+        var orderDir =
+            Request.Form.GetValues("order[0][dir]")?.FirstOrDefault()?.Trim() ?? string.Empty;
+        var search =
+            Request.Form.GetValues("search[value]")?.FirstOrDefault()?.Trim().ToLower()
+            ?? string.Empty;
 
         var pageSize = length != null ? Convert.ToInt32(length) : 10; // Default pageSize if null
         var skip = start != null ? Convert.ToInt32(start) : 0;
         var page = pageSize > 0 ? skip / pageSize + 1 : 1;
 
         var cacheKey =
-            $"employees_matched:{matched}_page:{page}_size:{pageSize}_search:{searchValue}_order:{order}_{orderDir}";
+            $"matched:{matched}_page:{page}_pageSize:{pageSize}_search:{search}_order:{order}_orderDir:{orderDir}";
 
         // Build the base query
         var query = FreeSql.Select<Employee>().Where(x => x.IsMatch == matched);
 
         // Apply filtering
-        if (!string.IsNullOrWhiteSpace(searchValue))
+        if (!string.IsNullOrWhiteSpace(search))
         {
-            long? parsedId = long.TryParse(searchValue, out var idResult) ? idResult : null;
-            DateTime? parsedBirthDate = DateTime.TryParse(searchValue, out var birthDateResult)
-                ? birthDateResult
-                : null;
-            DateTime? parsedHireDate = DateTime.TryParse(searchValue, out var hireDateResult)
-                ? hireDateResult
+            long? parsedId = long.TryParse(search, out var idResult) ? idResult : null;
+            DateTime? parsedDate = DateTime.TryParse(search, out var dateResult)
+                ? dateResult
                 : null;
             Expression<Func<Employee, bool>> where = null!;
-            where = where.Or(x => x.FirstName.Contains(searchValue));
-            where = where.Or(x => x.LastName.Contains(searchValue));
             if (parsedId.HasValue)
-            {
                 where = where.Or(x => x.Id == parsedId);
-            }
-            if (parsedBirthDate.HasValue)
-            {
-                where = where.Or(x => x.BirthDate == parsedBirthDate.Value);
-            }
-            if (parsedHireDate.HasValue)
-            {
-                where = where.Or(x => x.HireDate == parsedHireDate.Value);
-            }
+            if (parsedDate.HasValue)
+                where = where.Or(x => x.BirthDate == parsedDate || x.HireDate == parsedDate);
             query = query.Where(where);
         }
 
-        // Sorting Map
-        var columnMap = new Dictionary<string?, Expression<Func<Employee, object?>>>
-        {
-            { "0", e => e.Id },
-            { "1", e => e.FirstName },
-            { "2", e => e.LastName },
-            { "3", e => e.BirthDate },
-            { "4", e => e.HireDate },
-        };
-
-        if (columnMap.TryGetValue(order, out var sortExpression))
-        {
-            query = query.OrderByIf(
-                !string.IsNullOrEmpty(order) && !string.IsNullOrEmpty(orderDir),
-                sortExpression,
-                orderDir.Equals("DESC", StringComparison.CurrentCultureIgnoreCase)
-            );
-        }
-        else
-        {
-            query = query.OrderBy(e => e.Id); // Default ordering
-        }
+        // Sorting
+        query = query.OrderByPropertyNameIf(
+            !string.IsNullOrEmpty(order) && !string.IsNullOrEmpty(orderDir),
+            order,
+            orderDir.Equals("ASC", StringComparison.CurrentCultureIgnoreCase)
+        );
 
         // Get total records before filtering
         var rowsTotalCache = FusionCache.GetOrSet(
-            $"{cacheKey}-rows-total",
+            $"{nameof(Load)}-rows-total",
             _ => FreeSql.Select<Employee>().Count(),
-            options => options.SetDurationMin(10),
-            tags: [nameof(Employee), nameof(Load), "total"]
+            options => options.SetDurationMin(10)
         );
+
+        // Get total records after filtering
         var rowsFilteredCache = FusionCache.GetOrSet(
             $"{cacheKey}-rows-filtered",
             _ => query.Count(),
             options => options.SetDurationMin(10),
             tags: [nameof(Employee), nameof(Load)]
         );
+
+        // Get records
         var rowsCache = FusionCache.GetOrSet(
             $"{cacheKey}-rows",
             _ =>
                 query
-                    .Page(page, pageSize)
+                    .Skip(skip)
+                    .Take(pageSize)
                     .ToList(employee => new
                     {
                         employee.Id,
@@ -184,7 +174,7 @@ public class HomeController : Controller
         );
 
         var result = DataTableDto.Create(
-            Convert.ToInt32(draw),
+            draw,
             rowsTotalCache,
             rowsFilteredCache,
             rowsCache.Select(employee => new LoadDto

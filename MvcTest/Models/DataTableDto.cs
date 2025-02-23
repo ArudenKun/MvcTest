@@ -31,8 +31,5 @@ public class DataTableDto
         long recordsFiltered,
         TData data
     )
-        where TData : IEnumerable
-    {
-        return new DataTableDto(draw, recordsTotal, recordsFiltered, data);
-    }
+        where TData : IEnumerable => new(draw, recordsTotal, recordsFiltered, data);
 }
